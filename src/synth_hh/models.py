@@ -11,8 +11,9 @@ def dyad_feature_vector(di, dj):
     multiracial = ~np.all(di.loc[race_eth] == dj.loc[race_eth])
     same_sex = (di.sex_id == dj.sex_id)
     age_gap_abs = np.absolute(di.age - dj.age)
-    feature_vector = [multiracial, same_sex, age_gap_abs, min(di.age, dj.age), max(di.age, dj.age)]
-    col_names = ['multirace', 'same_sex', 'age_gap', 'agei', 'agej']
+    wra = ((18 <= di.age < 50) and (di.sex_id == 2)) or ((18 <= dj.age < 50) and (dj.sex_id == 2))
+    feature_vector = [multiracial, same_sex, age_gap_abs, min(di.age, dj.age), max(di.age, dj.age), wra]
+    col_names = ['multirace', 'same_sex', 'age_gap', 'agei', 'agej', 'wra']
     return feature_vector
 
 
@@ -124,8 +125,9 @@ def initialize_hh_ids(df_block, model_dict, state_str):
     returns a list of household ids
     """
     blk_hhs = synth_hh.data.get_hh_structure_for_block(df_block, state_str)
-    if np.all(blk_hhs.counts == 0):  # if there are no households, put everyone in the same hh (probably a data quality issue with miscoded group quarters??)
-        blk_hhs.iloc[-1,-1]=1
+    if (blk_hhs.counts * blk_hhs.hh_size).sum() < len(df_block):
+        # if the sum of sizes of households is less than the number of individuals, make sure there is a 7+ household
+        blk_hhs.iloc[-1,-1] = max(blk_hhs.iloc[-1,-1], 1)
     
     # construct a list of household ids, with length
     # mathcing df_block, and hh size structure matching blk_hhs
@@ -178,7 +180,7 @@ def initialize_hh_ids(df_block, model_dict, state_str):
                     s_logp += df_logp_ego.loc[s_logp.index, n_hh_i]
 
                     most_likely = s_logp.idxmax()
-                    df.loc[most_likely, 'hh_id'] = hh_id
+                    df.loc[most_likely, 'hh_id'] = hh_i
                     df.loc[most_likely, 'relationship'] = 21 # TODO: predict relationship
     print()
     return df
