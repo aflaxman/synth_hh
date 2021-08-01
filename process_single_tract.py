@@ -10,7 +10,7 @@ fname_list = synth_hh.data.get_census_tract_fnames(state=state_str)
 tract_i = int(sys.argv[2])
 assert tract_i < len(fname_list), f'there are {len(fname_list)} tracts in {state_str}; {tract_i} not allowed'
 fname = fname_list[tract_i]
-
+print(' '.join(sys.argv))
 
 np.random.seed(12345)
 

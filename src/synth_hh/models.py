@@ -166,6 +166,12 @@ def initialize_hh_ids(df_block, model_dict, state_str):
 
                     df_hh = df[df.hh_id == hh_i]
 
+                    # if df_hh is large, everything goes slowly, so choose a random sample
+                    # if it is more than 10
+                    if len(df_hh) > 10:
+                        rows = np.random.choice(df_hh.index, size=10, replace=False)
+                        df_hh = df_hh.loc[rows]
+
                     # find most likely person to also be in hh_i
                     X,ij = bipartite_data_to_dyads(df_hh, df[df.hh_id.isnull()])
                     logp = model_dict['dyad'].predict_log_proba(X)
