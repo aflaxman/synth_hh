@@ -69,6 +69,7 @@ def load_training_data(state_str, state, county):
     # docs https://www2.census.gov/programs-surveys/acs/tech_docs/pums/data_dict/PUMS_Data_Dictionary_2019.pdf
     df_train['hh_id'] = df_train.household_id
     df_train['sex_id'] = df_train.sex
+    df_train['relationship'] = df_train.relshipp
     df_train['racnhpi'] = ((df_train.racnh==1) | (df_train.racpi==1)).astype(int)
     
     return df_train

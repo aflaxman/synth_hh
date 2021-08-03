@@ -8,12 +8,15 @@ race_eth = ['racaian', 'racasn', 'racblk', 'racnhpi', 'racsor', 'racwht',]
 
 def dyad_feature_vector(di, dj):
     # feature engineering for this feature vector
-    multiracial = ~np.all(di.loc[race_eth] == dj.loc[race_eth])
+    multiracial = np.sum((di.loc[race_eth]==1) & (dj.loc[race_eth]==1)) / np.sum((di.loc[race_eth]==1) | (dj.loc[race_eth]==1))
     same_sex = (di.sex_id == dj.sex_id)
     age_gap_abs = np.absolute(di.age - dj.age)
     wra = ((18 <= di.age < 50) and (di.sex_id == 2)) or ((18 <= dj.age < 50) and (dj.sex_id == 2))
-    feature_vector = [multiracial, same_sex, age_gap_abs, min(di.age, dj.age), max(di.age, dj.age), wra]
-    col_names = ['multirace', 'same_sex', 'age_gap', 'agei', 'agej', 'wra']
+    if di.age >= dj.age:
+        older_is_female = (di.sex_id == 2)
+    else:
+        older_is_female = (dj.sex_id == 2)
+    feature_vector = [multiracial, same_sex, older_is_female, age_gap_abs, min(di.age, dj.age), max(di.age, dj.age), wra]
     return feature_vector
 
 
@@ -44,6 +47,16 @@ def bipartite_data_to_dyads(d1, d2):
     X = np.array(X)
     return X[:,:-2], np.array(X[:, -2:], dtype=int)
 
+def household_head_dyads(df):
+    X = []
+    s_i = df[df.relationship == 20].reset_index().set_index('hh_id')['index']
+
+    for j in df.index:
+        i = s_i[df.loc[j, 'hh_id']]
+        feature_vector = dyad_feature_vector(df.loc[i], df.loc[j])
+        X.append(feature_vector)
+    X = np.array(X)
+    return X
 
 def hh_size_for_individuals(data):
     s_hh_size = data.hh_id.value_counts().loc[data.hh_id]
@@ -107,6 +120,12 @@ def train_models_for_ergm_likelihood(state_str, state, county):
         mod.fit(X, y)
         model_dict['ref_person', hh_size] = mod
 
+    X = household_head_dyads(df_train)
+    y = df_train.relationship.values
+    mod = sklearn.ensemble.GradientBoostingClassifier(n_estimators=1_000)
+    mod.fit(X, y)
+    model_dict['relationship'] = mod
+
     return model_dict
 
 
@@ -143,6 +162,7 @@ def initialize_hh_ids(df_block, model_dict, state_str):
         df['logp'] = logp[:,1]
         for j in np.arange(blk_hhs.counts[i]):
             # assign most likely to live alone who is currently unassigned
+            # TODO: include race of householder
             most_likely = df.loc[df.hh_id.isnull(), 'logp'].idxmax()
             df.loc[most_likely, 'hh_id'] = hh_id
             df.loc[most_likely, 'relationship'] = 20
@@ -187,6 +207,11 @@ def initialize_hh_ids(df_block, model_dict, state_str):
 
                     most_likely = s_logp.idxmax()
                     df.loc[most_likely, 'hh_id'] = hh_i
-                    df.loc[most_likely, 'relationship'] = 21 # TODO: predict relationship
+
+                    df.loc[most_likely, 'relationship'] = 36
+
+    # predict relationship
+    X = household_head_dyads(df)
+    df['relationship'] = model_dict['relationship'].predict(X)
     print()
     return df

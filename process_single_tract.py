@@ -38,3 +38,5 @@ del df_tract_w_hhs['logp']
 df_tract_w_hhs.to_csv('/ihme/scratch/users/abie/projects/2021/synth_pop/'
                       f'synth_pop_w_hhs/{state_str}_{state:02d}{county:03d}_{tract:06d}.csv.bz2', index=False)
 
+print('ALL DONE')
+
