@@ -29,7 +29,7 @@ for block, df_block in df_tract.groupby('block'):
     #import pdb; pdb.set_trace()
     print(f'processing block {block}; n={len(df_block)} people')
 
-    df_block_w_hhs = synth_hh.models.initialize_hh_ids(df_block, model_dict, 'wa')
+    df_block_w_hhs = synth_hh.models.initialize_hh_ids(df_block, model_dict, state_str)
 
     df_list.append(df_block_w_hhs)
 
