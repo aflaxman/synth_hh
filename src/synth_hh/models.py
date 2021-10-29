@@ -144,6 +144,9 @@ def initialize_hh_ids(df_block, model_dict, state_str):
     returns a list of household ids
     """
     blk_hhs = synth_hh.data.get_hh_structure_for_block(df_block, state_str)
+    if np.all(blk_hhs.counts == 0):
+        blk_hhs.loc[0, 'counts'] = len(df_block)
+
     if (blk_hhs.counts * blk_hhs.hh_size).sum() < len(df_block):
         # if the sum of sizes of households is less than the number of individuals, make sure there is a 7+ household
         blk_hhs.iloc[-1,-1] = max(blk_hhs.iloc[-1,-1], 1)

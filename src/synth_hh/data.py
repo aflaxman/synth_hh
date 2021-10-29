@@ -29,24 +29,28 @@ def get_hh_structure_for_block(df_block, state_str):
     decennial = pd.read_csv('/ihme/scratch/users/abie/projects/2021/synth_pop/decennial_census_2010/processed'
                             f'{state_str}_hh_cols.csv.bz2')
     blk = decennial.query('STATE == @state and COUNTY == @county and TRACT == @tract and BLOCK == @block')
-    assert len(blk) == 1
-    s = blk.iloc[0]
+    if len(blk) == 1:
+        s = blk.iloc[0]
 
-    blk_hhs = { # from https://api.census.gov/data/2010/dec/sf1/variables.html
-        1:              s.P0280010,
-        2: s.P0280003 + s.P0280011,
-        3: s.P0280004 + s.P0280012,
-        4: s.P0280005 + s.P0280013,
-        5: s.P0280006 + s.P0280014,
-        6: s.P0280007 + s.P0280015,
-        7: s.P0280008 + s.P0280016,
-    }
+        blk_hhs = { # from https://api.census.gov/data/2010/dec/sf1/variables.html
+            1:              s.P0280010,
+            2: s.P0280003 + s.P0280011,
+            3: s.P0280004 + s.P0280012,
+            4: s.P0280005 + s.P0280013,
+            5: s.P0280006 + s.P0280014,
+            6: s.P0280007 + s.P0280015,
+            7: s.P0280008 + s.P0280016,    #  hh_size 7 really means 7 or more
+        }
+    else:
+        print('found no household structure information for this block')
+        blk_hhs = {i: 0 for i in range(1,7)}
+
     blk_hhs = pd.Series(blk_hhs, dtype=int)
     blk_hhs = blk_hhs.reset_index()
     blk_hhs.columns = ['hh_size', 'counts']
-    #  hh_size 7 really means 7 or more
-    
+
     return blk_hhs
+
 # get_hh_structure_for_block(df_block)
 
 
