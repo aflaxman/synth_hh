@@ -24,7 +24,7 @@ model_dict = synth_hh.models.train_models_for_ergm_likelihood(state_str, state, 
 
 df_list = []
 for block, df_block in df_tract.groupby('block'):
-    #if block < 1042:
+    #if block < 3002:
     #    continue
     #import pdb; pdb.set_trace()
     print(f'processing block {block}; n={len(df_block)} people')

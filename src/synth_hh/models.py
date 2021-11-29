@@ -88,12 +88,12 @@ def train_models_for_ergm_likelihood(state_str, state, county):
     # Make model of likelihood for dyads
     # form train and test to have a balance of in-group and out-group links
     X_y_list = []
-    
+
     # same-hh examples
-    for g, dfg in df_train.groupby('household_id'):
-    #     print('.', )
-        if len(dfg) > 1:
-            X_y_list.append(data_to_dyads(dfg))
+    t = df_train.household_id.value_counts()
+    multi_person_household = t[t>1].index
+    for g, dfg in df_train[df_train.household_id.isin(multi_person_household)].groupby('household_id'):
+        X_y_list.append(data_to_dyads(dfg))
     y = np.hstack([yi for Xi,yi in X_y_list])
     
     # not-same-hh examples
@@ -111,12 +111,18 @@ def train_models_for_ergm_likelihood(state_str, state, county):
         # Make model of likelihood for membership in this sized household by individual characteristics
         y = label_lives_in_size_X_hh(df_train, hh_size)
         mod = sklearn.ensemble.GradientBoostingClassifier(n_estimators=1_000)
+        if len(np.unique(y)) != 2:
+            y[0] = (1-y[1])
+
         mod.fit(X, y)
         model_dict['lives_in', hh_size] = mod
 
         # Make model of likelihood to be reference person in this sized household
         y = label_ref_person_in_size_X_hh(df_train, hh_size)
         mod = sklearn.ensemble.GradientBoostingClassifier(n_estimators=1_000)
+        if len(np.unique(y)) != 2:
+            y[0] = (1-y[1])
+
         mod.fit(X, y)
         model_dict['ref_person', hh_size] = mod
 
@@ -152,7 +158,7 @@ def initialize_hh_ids(df_block, model_dict, state_str):
         blk_hhs.iloc[-1,-1] = max(blk_hhs.iloc[-1,-1], 1)
     
     # construct a list of household ids, with length
-    # mathcing df_block, and hh size structure matching blk_hhs
+    # matching df_block, and hh size structure matching blk_hhs
     df = df_block.copy()
     X_ego = data_to_ego_features(df)
 
@@ -161,7 +167,7 @@ def initialize_hh_ids(df_block, model_dict, state_str):
     hh_id = 0
     for i in blk_hhs.index:
         size_i = blk_hhs.hh_size[i]
-        logp = model_dict['ref_person', size_i].predict_log_proba(X_ego)
+        logp = np.log(1e-6+model_dict['ref_person', size_i].predict_proba(X_ego))
         df['logp'] = logp[:,1]
         for j in np.arange(blk_hhs.counts[i]):
             # assign most likely to live alone who is currently unassigned
@@ -176,11 +182,10 @@ def initialize_hh_ids(df_block, model_dict, state_str):
     hh_size = pd.Series(hh_size).sort_values(ascending=False)
     df_logp_ego = pd.DataFrame(index=df_block.index)
     for size_i in hh_size.unique():
-        logp = model_dict['lives_in', size_i].predict_log_proba(X_ego)
+        logp = np.log(1e-6+model_dict['lives_in', size_i].predict_proba(X_ego))
         df_logp_ego[size_i] = logp[:,1]
 
     # keep going until everyone has a household
-    #import pdb; pdb.set_trace()
     while np.any(df.hh_id.isnull()):
         for hh_i, n_hh_i in hh_size.items():
             if (np.sum(df.hh_id == hh_i) < n_hh_i) or (n_hh_i == 7):
@@ -195,9 +200,15 @@ def initialize_hh_ids(df_block, model_dict, state_str):
                         rows = np.random.choice(df_hh.index, size=10, replace=False)
                         df_hh = df_hh.loc[rows]
 
+                    df_unassigned = df[df.hh_id.isnull()]
+                    if len(df_unassigned) > 10:
+                        rows = np.random.choice(df_unassigned.index, size=10, replace=False)
+                        df_unassigned = df_unassigned.loc[rows]
+
+
                     # find most likely person to also be in hh_i
-                    X,ij = bipartite_data_to_dyads(df_hh, df[df.hh_id.isnull()])
-                    logp = model_dict['dyad'].predict_log_proba(X)
+                    X,ij = bipartite_data_to_dyads(df_hh, df_unassigned)
+                    logp = np.log(1e-6+model_dict['dyad'].predict_proba(X))
 
                     # sum up blocks of length df_hh, or something
                     ij = pd.MultiIndex.from_arrays(ij.T)
